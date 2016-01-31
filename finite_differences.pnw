@@ -1,0 +1,656 @@
+\documentclass{article}
+\usepackage[linesnumbered]{algorithm2e}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{minted}
+\usepackage{placeins}
+\usepackage{setspace}
+
+
+\bibliographystyle{unsrt}
+
+\newenvironment{code}{\captionsetup{type=listing}}{}
+\fvset{linenos=True, frame=single}
+
+\author{Pascal Vaudrevange}
+\title{Penalty method for finite differences}
+
+\begin{document}
+\maketitle
+\section*{Section 3}
+This document is typeset using literate programming. Please see the appendix for instructions how to recreate this document.
+\section*{Section 3.1}
+We want to find the solution to 
+\begin{eqnarray}
+    \partial_t V+(\pi+r W)\partial_W V &=&0\,.\label{eq:fulleom}
+\end{eqnarray}
+which is the $p=0$ version of 
+\begin{eqnarray}
+    \partial_tV+\inf_{p\in P} L^p V&=&0\,,\label{eq:fullV}
+\end{eqnarray}
+with
+\begin{eqnarray}
+    L^pV&=&\frac12\sigma^2p^2W^2\partial_W^2V+(\pi+W(r+p\sigma\xi))\partial_W V\,.
+\end{eqnarray}
+We chose the Ansatz
+\begin{eqnarray}
+    V_{p0}(W, T-\tau)&=&\alpha(\tau) W^2 + \beta(\tau) W + \delta(\tau)\,,\label{eq:V_p0}
+\end{eqnarray}
+with $\alpha, \beta, \delta$ (unrelated to $\alpha_m^{(f,c)}, \beta_m^{(f,c)}$ in Section 3.2) given by
+\begin{eqnarray}
+    \alpha(\tau)&=&e^{2r\tau}\,,\nonumber\\
+    \beta(\tau)&=&-(\gamma + c)e^{r\tau}+ce^{2r\tau}\,,\nonumber\\
+    \delta(\tau)&=&-\frac{\pi}{r}(\gamma+c)\left(e^{r\tau}-1\right)+\frac{c\pi}{2r}\left(e^{2r\tau}-1\right)+\frac{\gamma^2}{4}\,,\nonumber\\
+    c&=&\frac{2\pi}{r}\,.\label{eq:V_p0_const}
+\end{eqnarray}
+We change the time coordinate to $\tau=T-t$, $\Delta\tau = \Delta t$, compute all derivatives
+\begin{eqnarray}
+    \partial_W V_{p0} &=& 2\alpha(\tau) W +\beta(\tau)\,,\nonumber\\
+    \partial_t \alpha&=&-\partial_\tau \alpha = -2 r e^{2r\tau}=-2r\alpha(\tau)\,,\nonumber\\
+    \partial_t \beta&=&-\partial_\tau \beta = -\left[-r(\gamma+c)e^{r\tau}+rc2e^{2r\tau}\right]=-r\left[\beta+c\alpha\right]\,,\nonumber\\
+    \partial_t \delta&=&-\partial_\tau\delta=-\left[-\pi(\gamma+c)e^{r\tau}+\frac{\pi c}{2}e^{2r\tau}\right]=-\pi\beta\,,
+\end{eqnarray}
+and using 
+\begin{eqnarray}
+    \partial_t V_{p0} &=& -2\alpha r W^2-rW\left[\beta+c\alpha\right]-\pi\beta\,,
+\end{eqnarray}
+to plug everything into \eqref{eq:fulleom} to find
+\begin{eqnarray}
+    \partial_t V_p0 + \left(\pi+rW\right)\partial_W V_p0 &=&-2\alpha r W^2-rW\beta-2\pi\alpha W - \pi\beta + \left(\pi+rW\right)\left[2\alpha W + \beta\right]\nonumber\\
+    &=&-2\alpha r W^2-rW\beta-2\pi\alpha W-\pi\beta+2\alpha\pi W+\pi\beta+2 r \alpha W^2+\beta r W\nonumber\\
+    &=&0\,.
+\end{eqnarray}
+Further, if $V_{p0}$ is to be the boundary condition for a sufficiently large $W_\mathrm{max}$ $V_{p0}(W_\mathrm{max}, \tau)$ at $t=T$ should equal to the boundary condition $V(W_\mathrm{max}, T)$ (using $\tau=0$)
+\begin{eqnarray}
+    V_{p0}(W_\mathrm{max},T)&=&\alpha(0)W_\mathrm{max}^2+\beta(0) W_\mathrm{max} + \delta(0)=W_\mathrm{max}^2+\left[c-\gamma-c\right]W_\mathrm{max}+\frac{\gamma^2}{4}\nonumber\\
+    &=&W_\mathrm{max}^2-\gamma W_\mathrm{max}+\frac{\gamma^2}{4}=\left(W_\mathrm{max}-\frac{\gamma}{2}\right)^2=V(W_\mathrm{max}, T)\,.
+\end{eqnarray}
+\section*{Section 3.2}
+With notation
+\begin{eqnarray}
+    V_n^m &=& V(n\Delta W, m\Delta\tau)\,,\tau=T-t\,,\Delta\tau=\Delta t\,,
+\end{eqnarray}
+the discretized version of \eqref{eq:fullV} using fully implicit Euler timestepping (ignoring the boundary conditions which we'll deal with below in Section 3.4) is given by
+\begin{eqnarray}
+    \frac{V^{m+1}_n-V^m_n}{\Delta\tau} &=& \inf_{p\in P} L_p^h V^{m+1}\,,\nonumber\\
+    L_p^h V^{m+1} &=& \left[\alpha^{(f,c)}_m V^{m+1}_{n-1} + \beta^{(f,c)}_n V^{m+1}_{n+1}-\left(\alpha_n^{(f,c)}+\beta^{(f,c)}_n\right)V^{m+1}_n\right]\,.\label{eq:discV}\qquad
+\end{eqnarray}
+Note that we work with $\tau$ instead of $t$, hence we have $L_p^h V^{m+1}$ for the implicit scheme instead of $L_p^h V^m$. The forward (f) and central-differences (c) are given by
+\begin{eqnarray}
+    \alpha_n^{(f)} &=& \frac12 \sigma^2p^2n^2\,,\\
+    \beta_n^{(f)} &=& \frac12\sigma^2p^2n^2+n(r+p\sigma\xi)+\frac{\pi}{\Delta W}\,,\\
+    \alpha_n^{(c)} &=& \frac12\left[\sigma^2p^2n^2-n(r+p\sigma\xi)-\frac{\pi}{\Delta W}\right]\,,\\
+    \beta_n^{(c)} &=& \frac12\left[\sigma^2p^2n^2+n(r+p\sigma\xi)+\frac{\pi}{\Delta W}\right]\,.
+\end{eqnarray}
+The (forward/ central differencing) coefficients $\alpha_n^{(f,c)}), \beta_n^{(f,c)}$ are chosen as central differencing conditions $\alpha_n^{(c)}, \beta_n^{(c)}$ when they are positive, and as forward differencing coefficients (which are always positive since $\sigma, p, r, i, \xi, \Delta W \ge 0$) if the central coefficients are negative, see also the discussion below.
+
+To check that the above expressions are correct, we first plug the forward differences into \eqref{eq:discV} and find
+\begin{eqnarray}
+    \frac{V^{m+1}_n-V^m_n}{\Delta\tau} &=& \min_{p\in P} \Big[\frac12\sigma^2p^2n^2 V^{m+1}_{n-1}+\left[\frac12\sigma^2p^2n^2+n(r+p\sigma\xi)+\frac{\pi}{\Delta W}\right]V^{m+1}_{n+1}\nonumber\\
+    &&\qquad-\left[\sigma^2p^2n^2+\frac{\pi}{\Delta W}+n(r+p\sigma\xi)\right]V^{m+1}_n\Big]\nonumber\\
+    &=&\min_{p\in P}\Big[\frac12\sigma^2p^2n^2(\Delta W)^2\frac{V^{m+1}_{n+1}-2V^{m+1}_n+V^{m+1}_{n-1}}{(\Delta W)^2}\nonumber\\
+    &&\qquad + \left(\pi+n\Delta W(r+p\sigma\xi)\right)\frac{V^{m+1}_{n+1}- V^{m+1}_n}{\Delta W}\Big]\,,
+\end{eqnarray}
+which is just the discretized form of \eqref{eq:fullV} using the forward difference for $\partial_W$.\footnote{The second derivative $\partial_W^2$ is always discretized as $\frac{V_{n+1}-2V_n+V_{n-1}}{(\Delta W)^2}$.}
+Next, we plug in the central differences
+\begin{eqnarray}
+   \frac{V^{m+1}_n-V^m_n}{\Delta\tau} &=& \min_{p\in P} \Big[\frac12\left[\sigma^2p^2n^2-n(r+p\sigma\xi)-\frac{\pi}{\Delta W}\right] V^{m+1}_{n-1} \nonumber\\
+   &&\qquad + \frac12\left[\sigma^2p^2n^2+n(r+p\sigma\xi)+\frac{\pi}{\Delta W}\right] V^{m+1}_{n+1} \nonumber\\
+   &&\qquad - \sigma^2p^2n^2 V^{m+1}_n\Big]\nonumber\\
+   &=&\min_{p\in P} \Big[\frac12\sigma^2p^2n^2 (\Delta W)^2\frac{V^{m+1}_{n+1}-2V^{m+1}_n + V^{m+1}_{n-1}}{(\Delta W)^2}\nonumber\\
+   &&+\left(\pi+n\Delta W(r+p\sigma\xi)\right) \frac{V^{m+1}_{n+1}-V^{m+1}_{n-1}}{2\Delta W}\Big]\,,
+\end{eqnarray}
+which uses the central difference for approximating $\partial_W V$.
+
+The scheme \eqref{eq:discV} is convergent to the viscosity solution of \eqref{eq:fullV} under the following conditions (see also Theorem 4.1 in \cite{WangForsyth} ):
+\begin{itemize}
+    \item The coefficients of $\partial_W^2 V$ and $\partial_W V$ in \eqref{eq:fullV} are positive and bounded from above for finite $W$, the set of controls $P$ is compact, and a suitable boundary condition is chosen (strong comparison property). This is trivially fulfilled as $r, p, \sigma, \xi, \pi$ are all positive.
+    \item $\alpha_n, \beta_n$ are positive for all $n=0\dots N$ (positive coefficient condition)
+\end{itemize}
+In order to fulfill the latter condition, we use the central difference coefficients $\alpha_n^{(c)}, \beta_n^{(c)}$ when they are positive (or zero). When central difference coefficients are negative, we take the forward difference coefficients $\alpha_n^{(f)}, \beta_n^{(c)}$.\footnote{The forward coefficients are always positive owing to the fact that $r, p, \sigma, \xi, \pi$ are all positive.}. This guarantees that $\alpha_n, \beta_n$ fulfill the positive coefficient condition.
+\section*{Section 3.3}
+At $W=0$, i.e. $n=0$, the central difference coefficients $\alpha^{(c)}_0, \beta^{(c)}_0$ in \eqref{eq:discV} evaluate to
+\begin{eqnarray}
+    \alpha_0^{(c)}&=&-\frac{\pi}{\Delta W} <0\,,\nonumber\\
+    \beta_0^{(c)}&=&\frac{\pi}{\Delta W}\,.
+\end{eqnarray}
+Hence, in order to fulfill the positive coefficient condition, we must use the right-sided difference
+\begin{eqnarray}
+    \alpha_0^{(f)}&=&0\,,\nonumber\\
+    \beta_0^{(f)}&=&\frac{\pi}{\Delta W}\,,
+\end{eqnarray}
+giving the numerical equation
+\begin{eqnarray}
+    \frac{V^{m+1}_0-V^n_0}{\Delta\tau} &=& \pi \frac{V^{m+1}_{1}-V^{m+1}_0}{\Delta W}\,.
+\end{eqnarray}
+Hence no boundary condition is needed.
+\section*{Section 3.4}
+
+See Section 3.2 for the derivation of the finite difference scheme. Note that we're using $\tau=T-t$ as time coordinate and that the problem text specifies $M$ as the number of timesteps and $N$ as the number of spatial grid points.
+
+We still need to incorporate the boundary conditions at $W=W_\mathrm{max}$. As assumed in Section 3.1, the boundary condition for $W\to\infty$ is given by \eqref{eq:V_p0} and \eqref{eq:V_p0_const}. Thus we define 
+\begin{eqnarray}
+    g^m &=& V_{p0}(W_\mathrm{max}, m\Delta\tau)\,,
+\end{eqnarray}
+and to find the following set of equations
+\begin{eqnarray}
+    \frac{V^{m+1}_n-V^m_n}{\Delta \tau} &=& \min_{p\in P_h}\alpha_n^{(f,c)} V^{m+1}_{n-1} + \beta_n^{(f,c)} V^{m+1}_{n+1} - (\alpha_n^{(f,c)} + \beta_n^{(f,c)}) V^{m+1}_n\,, \mathrm{for}\quad n=1\dots N-2\,,\nonumber\\
+    \frac{V^{m+1}_0-V^m_0}{\Delta \tau} &=& \beta_0^{(f)} V_1 - \beta_0^{(f)} V^{m+1}_0\,,\mathrm{for}\quad n=0\,,\nonumber\\
+    \frac{V^{m+1}_{N-1}-V^m_{N-1}}{\Delta \tau} &=& g^{m+1} - g^{m}\,,\mathrm{for}\quad n=N-1\,.
+\end{eqnarray}
+These equations can be written in the form
+\begin{eqnarray}
+    \left[\mathbf{1}-\Delta\tau \min_{p}\left\{A(p)\right\}\right]V^{m+1}&=&\tilde{V}^m\,,
+\end{eqnarray}
+with
+\begin{eqnarray}
+    A(p) &=&\left(\begin{array}{ccccccc}
+                -\beta_0^{(f)}&\beta_0^{(f)}&0&\dots&&&0\\
+                \alpha_1^{(f,c)}&-\left(\alpha_1^{(f,c)}+\beta_1^{(f,c)}\right)& \beta_1^{(f,c)}&0&\dots&&0\\
+                0 & \alpha_2^{(f,c)}&-\left(\alpha_2^{(f,c)}+\beta_2^{(f,c)}\right)& \beta_2^{(f,c)}&0&\dots&0\\
+                \vdots& 0 & \vdots & \vdots & \vdots & \vdots & \vdots \\
+                \vdots& \vdots &\vdots&& \alpha_{N-2}^{(f,c)}&-\left(\alpha_{N-2}^{(f,c)}+\beta_{N-2}^{(f,c)}\right)& \beta_{N-2}^{(f,c)}\\
+                0&0&0&\dots&0&0&0
+    \end{array}\right)\nonumber\\
+    \tilde{V}^{m} &=& \left(\begin{array}{c}
+                        V_0^m\\
+                        V_1^m\\
+                        \vdots\\
+                        V_{N-2}^m\\
+                        g^{m+1}-g^{m}
+        \end{array}\right)\,,
+\end{eqnarray}
+where $\alpha_n^{(f,c)}, \beta_n^{(f,c)}$ are functions of the control parameter $p$. Note that the last row of $A$ consists of only zeros as the boundary condition at the upper boundary is implemented in the last component $\tilde{V}^{m}_{N-1}$.
+
+The policy iteration algorithm for a single time step $m$ is sketched in Algorithm \ref{alg:policy_iteration}. For each timestep $m$, do the following. We label $\hat{V}^k$ the current policy iteration's best guess for $V^{m+1}$. $p^k_n$ is the current policy iteration's best guess for the $n-$th component of the control vector $p^k$. That is, at each lattice point $n$, p has a different value.
+\begin{enumerate}
+\item Set $\hat{V}^0=V^m$
+\item Find all components $p^0_n$ by finding the minimum of 
+\end{enumerate}
+\begin{algorithm}
+\ForEach{timestep $n$}{
+    $\displaystyle{\hat{V}^{0} = V^m}$\;
+    \Repeat{$\left|\frac{\hat{V}^{k+1}_n-\hat{V}^k_n}{\hat{V}^{k+1}_n}\right|<$tolerance}{
+        $\displaystyle{p^k_n=\arg\min_{p^k_n\in P_h}\left\{\left[A(p^k)\hat{V}^k \right]_n\right\}=\arg\min_{p^k_m\in P_h}\left\{\alpha_n(p^k_n)\hat{V}^k_{n-1} + \beta_n(p^k_n)\hat{V}^k_{n+1}-(\alpha_n(p^k_n)+\beta_n(p^k_n))\hat{V}^k_n\right\}}$\;
+        Solve $\displaystyle{\left[\mathbf{1}-\Delta\tau A(p^k)\right]\hat{V}^{k+1} = \tilde{V}^m}$ for $\hat{V}^{k+1}$\;
+        }
+    $\displaystyle{V^{m+1} = V^{k+1}}$\;
+}
+\caption{Policy iteration algorithm. $k$ labels the iteration step. $m$ labels the  timestep. $n$ labels the grid point.}\label{alg:policy_iteration}
+\end{algorithm}
+\section*{Section 3.5}
+We implement the implicit scheme in Python:
+\begin{code}
+<<fig=False>>=
+import logging
+import math
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as spla
+import scipy.linalg as la
+
+
+class ImplicitSchemePolicyIteration(object):
+    def __init__(self, M=1500, N=101, J=8, pmax=1.5, r=0.03, sigma=0.15
+                 , xi=0.33, pi=0.1, T=20, gamma=14.47, Wmax=5.0
+                 , tolerance=1.e-6, use_i=False, use_sparse=True):
+        """
+        sets up the grid of control parameters, the spatial grid and the
+        time steps.
+        :param M: number of grid points
+        :type M: integer
+        :param N: number of time steps
+        :type N: integer
+        :param J: number of steps for the discretization of the control
+                  parameter p
+        :type J: integer
+        :param pmax: maximum value of the control parameter p
+        :type pmax: float
+        :param r: model paramter
+        :type r: float
+        :param sigma: model parameter
+        :type sigma: float
+        :param xi: model parameter
+        :type xi: float
+        :param pi: model parameter
+        :type pi: float
+        :param T: expiry
+        :type T: float
+        :param gamma: model parameter
+        :type gamma: float
+        :param Wmax: largest grid point. Should be large enough so that
+                     the control parameter $p=0$ there.
+        :type Wmax: float
+        :param tolerance: tolerance for the policy iteration
+        :type tolerance: boolean
+        :param use_i: whether to compute the coefficients of the finite
+                      difference scheme using the grid points $i$ or
+                      the values of $W$ at the grid points.
+        :type use_i: boolean
+        :param use_sparse: perform computations using sparse matrices
+                           (if True)
+                           or normal matrices (if false)
+        :type use_sparse: boolean
+        :return:
+        """
+        self.__dict__.update(locals()) # make all parameters of __init__
+                                       # into attributes of self.
+        del self.self # we don't need to have self.self
+
+        self.p_list = np.linspace(0, pmax, J)
+        self.w_list = np.linspace(0, Wmax, N)
+        self.tau_list = np.linspace(0, T, M)
+        self.delta_w = self.w_list[1]
+        self.delta_tau = self.tau_list[1]
+    # end def __init__
+
+    def get_v_tmax(self, W):
+        """
+        computes the boundary condition at $t=T$
+        :param W: the value of the underlying. In real units, i.e.
+                  W = i * self.delta_w
+        :type W: float
+        :returns: the boundary contition $V(W, T)$
+        :rtype: float
+        """
+        return math.pow(W - self.gamma / 2.0, 2)
+    # end def get_v_tmax
+
+    def get_v_p0(self, W, tau):
+        """
+        the value of V for the case for zero control parameter, p=0. This
+        is used as boundary condition for $W=W_\mathrm{max}$
+        :param W:
+        :type W: float
+        :param tau: time to expiry, $\tau=T-t=m*\Delta\tau$
+        :type tau: float
+        :return: the value of V for the case for zero control parameter
+                 p=0
+        :rtype: float
+        """
+
+        c = 2 * self.pi / float(self.r)
+        # These are the alpha, beta from the boundary condition for p=0
+        # (i.e. at W=W_max)
+        # and not the central/ forward differencing alphas and betas
+        alpha = math.exp(2.0 * self.r * tau)
+        beta = (-(self.gamma + c) * math.exp(self.r * tau)
+                + c * math.exp(2.0 * self.r * tau))
+        delta = (-(self.pi * (self.gamma + c)) / float(self.r)
+                    * (math.exp(self.r * tau) - 1.0)
+                 + self.pi * c / (2.0 * float(self.r))
+                    * (math.exp(2.0 * self.r * tau) - 1.0)
+                 + math.pow(self.gamma, 2) / 4.0)
+        result = alpha * W * W + beta * W + delta
+        return result
+    #end def get_v_p0
+
+    def get_v_wmax(self, tau):
+        """"
+        computes the value of $V(W_max, tau)$ at the upper boundary
+        $W_max$
+        :param tau: time to expiry $\tau = T - t = m \Delta\tau$
+        :type tau: float
+        :returns: value of $V(W_max, tau)$ at the upper boundary $W_max$
+        :rtype: float
+        """
+        result = self.get_v_p0(self.Wmax, tau)
+        return result
+    # end def get_v_wmax
+
+    def get_coeffs(self, p_list):
+        """
+        computes the forward/ central coefficients
+        $\alpha_i^{(f,c)}, \beta_i^{(f,c)}$
+        of the finite difference scheme.
+        :param p_list: the vector of control paramaters at each grid point.
+        :type p_list: [float] of length self.M
+        :returns: ([alpha_i], [beta_i]) the forward/ central coefficients
+                  $\alpha_i^{(f,c)}, \beta_i^{(f,c)}$ of the finite
+                  difference scheme.
+        :rtype: ([float], [float])
+        """
+        if self.use_i:
+            alpha_f = np.array([0.5 * math.pow(self.sigma * n_ * p_, 2)
+                                for n_, p_ in enumerate(p_list)])
+            part2 = np.array(
+                [n_ * (self.r + p_ * self.sigma * self.xi)
+                + self.pi / self.delta_w for n_, p_ in enumerate(p_list)])
+        else:
+            alpha_f = np.array([0.5 *
+                        math.pow(self.sigma * w_ * p_ / self.delta_w, 2)
+                        for w_, p_ in zip(self.w_list, p_list)])
+            part2 = np.array(
+                 [(w_ * (self.r + p_ * self.sigma * self.xi)
+                  + self.pi) / self.delta_w
+                  for w_, p_ in zip(self.w_list, p_list)])
+        #end if
+        beta_f = alpha_f + part2
+        alpha_c = alpha_f - 0.5 * part2
+        beta_c = alpha_f + 0.5 * part2
+
+        beta = beta_c
+        alpha = alpha_c
+        index_list = alpha_c * beta_c < 0.0
+
+        if any(index_list):
+            alpha[index_list] = alpha_f[index_list]
+            beta[index_list] = beta_f[index_list]
+        #end if
+        result = (alpha, beta)
+        return result
+    # end def get_coeffs
+
+    def get_A(self, p_list):
+        """
+        computes the matrix A for the finite difference scheme, with the
+        last row set to zero to accomodate the boundary condition at the
+        right boundary.
+        :param p_list: the vector of control parameters at each grid point
+        :type p_list: [float]
+        :return: the matrix A
+        :rtype: sp.sparse_matrix
+        """
+        alpha, beta = self.get_coeffs(p_list)
+        result = sp.diags([alpha[1:]
+                             , -(alpha + beta)
+                             , beta[:-1]
+                          ]
+                         , [-1, 0, 1], format='csr')
+
+        # because of the explicit boundary condition at W=W_max
+        result[-1, :] = 0
+
+        return result
+    #end def get_A
+
+    def get_control_parameter(self, a_list, v_hat):
+        """
+        performs the minimization of $min_{p\in P_h} L_h V^{n+1}$
+        :param a_list: list of matrices $A$, one for each value of $p$
+                       in self.p_list
+        :type a_list: [np.ndarray] or [sp.sparse_matrix]
+        :param v_hat: the value of $\hat{V}^k$ in the current policy
+                      iteration step $k$
+        :type v_hat: [np.ndarray]
+        :return: p, the vector of control parameters
+        :rtype: [float] of length self.N
+        """
+        f = np.array([a_.dot(v_hat) for a_ in a_list])
+        p_index_list = np.argmin(f, axis=0)
+        result = self.p_list[p_index_list]
+        return result
+    #end def get_control_parameter
+
+    def get_v_hat_next(self, p_list, v_rhs):
+        """
+        solves the equation (1-A) v_hat_next = v_rhs for v_hat_next.
+        v_rhs already includes the boundary conditions.
+        :param p_list: control parameter vector o
+        :type p_list: [float]
+        :param v_rhs: the n-th component of (v_rhs)_n = v^m_n for
+                      n=0..self.N-2. For component n=N-1,
+                      (v_rhs)_{N-1}=v^m_{N-1} + g^{m+1}-g^m
+        :type v_rhs: [float]
+        :return: v_hat_next, the solution to (1-A) v_hat_next = v_rhs
+        :rtype: [float]
+        """
+        a = self.get_A(p_list)
+        mat = sp.eye(self.N) - a.multiply(self.delta_tau)
+
+        if self.use_sparse:
+            result = spla.spsolve(mat, v_rhs)
+        else:
+            result = la.solve(mat.toarray(), v_rhs)
+        #end if
+        return result
+    #end def get_v_hat_next
+
+    def policy_iteration(self, v, m, g):
+        """
+        performs a single policy iteration step and returns $V^{m+1}$
+        :param v: $V^m$, the value of V at timestep m
+        :type v: [float]
+        :param m: timestep
+        :type m: float
+        :param g: vector of boundary conditions for each timestep
+        :type g: [float] of length self.M
+        :return: $V^{m+1}$, the value of V at the next time step
+        :rtype: [float]
+        """
+        v_hat = v
+        v_rhs = v.copy()
+        # enforcing the boundary condition at W=W_max
+        v_rhs[-1] += (g[m + 1] - g[m])
+        a_list = [self.get_A(p_ * np.ones(self.N)) for p_ in self.p_list]
+        for n_iter in xrange(100):
+            p_list = self.get_control_parameter(a_list, v_hat)
+            v_hat_next = self.get_v_hat_next(p_list, v_rhs)
+
+            rel_diff = np.absolute((v_hat_next - v_hat)
+                                   /np.maximum(np.ones_like(v_hat_next)
+                                                , v_hat_next))
+            max_diff = np.max(rel_diff)
+            max_index = np.argmax(rel_diff)
+            logging.debug('timestep %s, policy iteration: %s, max difference: %s, max index: %s'
+                          % (m, n_iter, max_diff, max_index))
+
+            if (n_iter > 0) and (max_diff < self.tolerance):
+                break
+            v_hat = v_hat_next
+        # end for
+        if n_iter > 99:
+            logging.warn('policy iteration did not converge! Maybe adjust the maximum number of iterations?')
+        return (v_hat_next, p_list, n_iter+1)
+    #end def policy_iteration
+
+    def __call__(self):
+        """
+        performs the numerical integration using fully implicit finite
+        differences plus policy iteration
+        :return: (v,p), the value of the option and the value of the
+                  control parameter for each timestep m and grid point n
+        :rtype: (np.ndarray([self.M, self.N])
+                , np.ndarray([self.M, self.N]))
+        """
+        g = np.array([self.get_v_wmax(tau_) for tau_ in self.tau_list])
+        v = np.zeros([self.M, self.N])
+        p = np.zeros_like(v)
+        v[0, :] = np.array([self.get_v_tmax(w_) for w_ in self.w_list])
+        for m in xrange(self.M-1):
+            v[m + 1, :], p[m+1, :], n_iter = self.policy_iteration(v[m, :]
+                                                                   , m, g)
+            logging.info('completed timestep %s with %s policy iterations'
+                         % (m, n_iter))
+        # end for
+        result = (v, p)
+        return result
+    # end def __call__
+# end class ImplicitScheme
+
+
+def plot_results(scheme, v, p):
+    """
+    creates the plot of the results: V(W, T) and p(W,T), pinpointing the
+    value of V(1,T).
+    :param scheme: needed because we need to access some attribute of
+                   ImplicitSchemePolicyIteration
+    :type scheme: ImplicitSchemePolicyIteration
+    :param v: value of the option for each timestep m and grid point n
+    :type v: [[float]]
+    :param p: value of the control parameter for each timestep m and grid
+              point n
+    :type p: [[float]]
+    :return: the index of the W=1 and the figure
+    """
+    v_p0_w = [scheme.get_v_p0(w_, (scheme.M - 1) * scheme.delta_tau) for
+              w_ in scheme.w_list]
+
+    f, (ax1, ax2) = plt.subplots(2, sharex=True)
+    f.subplots_adjust(wspace=0, hspace=0)
+    ax1.plot(scheme.w_list, p[-1,:], 'b.-', label=r'control param $p$')
+    ax1.set_ylabel(r'$p(W, T)$')
+    ax1.set_xlabel(r'$W$')
+    ax1.xaxis.tick_top()
+    ax1.xaxis.set_label_position('top')
+    ax1.legend()
+    ax2.plot(scheme.w_list, v[-1,:], 'b-', label=r'$V(t=T, W)$')
+    ax2.plot(scheme.w_list, v_p0_w, 'r--', label=r'$V(t=T, W)|_{p=0}$')
+    ax2.set_ylabel(r'$V(W, T)$')
+    ax2.set_xlabel(r'$W$')
+    ax2.set_ylim([0.0,23])
+    w_index = int(math.floor((scheme.N-1)/scheme.Wmax))
+    ax2.plot([w_index * scheme.delta_w], [v[-1, w_index]], 'ro')
+
+    ax2.legend()
+    coords = [w_index * scheme.delta_w, round(v[-1, w_index],5)]
+    ax2.annotate('V(t=T, W=%s)=%s' % tuple(coords)
+                , xy=coords, xytext=(50,50), textcoords='offset points'
+                , arrowprops=dict(facecolor='red', shrink=0.05),
+                )
+    return (w_index, f)
+#end def plot_results
+
+
+def plot_pmax(pmax=1.5, Wmax=5.0):
+    scheme = ImplicitSchemePolicyIteration(pmax=pmax, Wmax=Wmax)
+    v, p = scheme()
+
+    p_max = np.max(p, axis=0)
+    plt.plot(scheme.w_list
+             , p_max
+             , 'b-'
+             , label=r'$\mathrm{max}_\mathrm{t\in [0,T]} p(W, t)$')
+    plt.xlabel(r'$W$')
+    plt.ylabel(r'$\mathrm{max}_\mathrm{t\in [0,T]} p(W, t)$')
+    plt.legend()
+    plt.show()
+#end def plot_pmax
+
+
+def main(pmax=1.5, Wmax=5.0):
+    logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s'
+                        , level=logging.WARN)
+    scheme = ImplicitSchemePolicyIteration(pmax=pmax, Wmax=Wmax)
+    v, p = scheme()
+    w_index, fig = plot_results(scheme, v, p)
+    print('The value of V(%s, T)=%s. The grid point is %s.'
+          % (w_index * scheme.delta_w, v[-1, w_index], w_index))
+
+    fig.show()
+    plt.show()
+# end def main
+
+@
+\caption{Fully implicit finite difference scheme using central differences as much as possible.}
+\label{code:fd}
+\end{code}
+Running the code above produces Figure~\ref{fig:V_and_p_of_w}. As can be seen, the value of $V(W=1, t=0)$ is given by
+\begin{eqnarray}
+V(W=1, t=0)&=&1.55884\,.
+\end{eqnarray}
+\begin{figure}
+<<>>=
+main()
+@
+\caption{Control parameter $p$ (top) and value $V$ (bottom) as a function of $W$ at $t=0$. The dashed black line in the bottom plot is the boundary condition at $t=T$.}
+\label{fig:V_and_p_of_w}
+\end{figure}
+However, Figure~\ref{fig:V_and_p_of_w} shows that the upper limit $p_\mathrm{max}=1.5$ might be too small, as there is a plateau for small $W$ at $t=0$. Hence, in order to investigate whether the suggested values for $p_\mathrm{max}=1.5, W_\mathrm{max}=5$ make sense, we plot the maximum value of $p(W,t)$ over all times $t\in[0,T]$, see Figure~\ref{fig:p_max_wrong}.
+\begin{figure}
+<<>>=
+plot_pmax(pmax=1.5, Wmax=5.0)
+@
+\caption{The maximum value of $p(W,t)$ over all times $t\in[0,T]$ as a function of $W$ for $W_\mathrm{max}=5.0$ which is clearly too small. The maximum of $p$ should be zero near $W_\mathrm{max}$.}
+\label{fig:p_max_wrong}
+\end{figure}
+Figure~\ref{fig:p_max_better} shows that $W_\mathrm{max}=7.0$ seems a much better value. \footnote{Making $p_\mathrm{max}$ much larger, e.g. $p_\mathrm{max}=10.0$, still leads to a plateau for small $W$, see Figure~\ref{fig:p_max_large}.} With this value for $W_\mathrm{max}$, we obtain a different value for $V(W=1, t=0)=1.57571$, see Figure~\ref{fig:V_and_p_better_wmax}. Table~\ref{tab:results} summarizes the results.
+\begin{table}
+\begin{center}
+\begin{tabular}{|c|c|c|}
+\hline
+$p_\mathrm{max}$ & $W_\mathrm{max}$ & $V(W=1,t=0)$\\
+\hline
+$1.5$ & $5.0$ & $1.55884$\\
+\hline
+$1.5$ & $8.0$ & $1.57571$\\
+\hline
+\end{tabular}
+\caption{Results for different values of $W_\mathrm{max}$. $W_\mathrm{max}=8.0$ is the better value to use as in this case, $p(W_\mathrm{max}=8.0, t)=0$}
+\label{tab:results}
+\end{center}
+\end{table}
+
+\begin{figure}
+<<>>=
+plot_pmax(pmax=1.5, Wmax=8.0)
+@
+\caption{The maximum value of $p(W,t)$ over all times $t\in[0,T]$ as a function of $W$. The maximum of $p$ is zero near $W_\mathrm{max}=7.0$.}
+\label{fig:p_max_better}
+\end{figure}
+\begin{figure}
+<<>>=
+plot_pmax(pmax=10.0, Wmax=8.0)
+@
+\caption{The maximum value of $p(W,t)$ over all times $t\in[0,T]$ as a function of $W$, with $p_\mathrm{max}=10.0$. The maximum of $p$ is zero near $W_\mathrm{max}=8.0$. However, the plateau for small $W$ is still there. Probably, the maximum value for $p$ must come from other (maybe financial?) considerations.}
+\label{fig:p_max_large}
+\end{figure}
+
+\begin{figure}
+<<>>=
+main(pmax=1.5, Wmax=8.0)
+@
+\caption{Control parameter $p$ (top) and value $V$ (bottom) as a function of $W$ at $t=0$ for $W_\mathrm{max}=8.0$. The dashed black line in the bottom plot is the boundary condition at $t=T$.}
+\label{fig:V_and_p_better_wmax}
+\end{figure}
+\FloatBarrier
+\appendix
+\section*{Appendix: Extracting and Running the Code}
+Note that all runs have a fixed seed for reproducibility. Modify if needed.
+This document uses literate programming \cite{pweave}. The code can be extracted using
+\begin{code}
+\begin{minted}{bash}
+ptangle "M15 1000246 Section 1.pnw"
+\end{minted}
+\caption{Extracting the code from the noweb document.}
+\label{code:extraction}
+\end{code}
+Creating this document from source (including dynamic creation of figures) is done via
+\begin{code}
+\begin{minted}{python}
+import pweave
+pweave.weave(r'M6_15_1000246_Section_3.pnw'
+            , figformat='png'
+            , doctype='texminted'
+            , cache=True)
+\end{minted}
+followed by the shell command
+\begin{minted}{bash}
+pdflatex -shell-escape "M6_15_1000246_Section_3.tex"
+\end{minted}
+\caption{Recreating this document.}
+\label{code:recreate}
+\end{code}
+This document was created using the following versions on an Intel Core i7 U5600 @2.6GHz with 8GB of RAM.
+\begin{code}
+<<fig=False>>=
+import matplotlib as mp
+import sys
+print('Python version: %s' % sys.version)
+print('NumPy version: %s ' % np.__version__)
+print('Matplotlib version: %s ' % mp.__version__)
+@
+\caption{Versions used for this document.}
+\label{code:versions}
+\end{code}
+\begin{thebibliography}{99}
+\bibitem{pweave} Matti Pastelli, Pweave - Scientific Reports Using Python, {\tt http://mpastell.com/pweave/}
+\bibitem{WangForsyth} J.~Wang and P.A.~Forsyth, Maximal use of central differencing for Hamilton-Jacobi-Bellman PDEs in finance, SIAM Journal on Numerical Analytics, 46, 1580-1601, 2008 
+\end{thebibliography}
+
+\end{document}
