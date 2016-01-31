@@ -9,7 +9,8 @@ ptangle "finited_differences.pnw"
 
 In order to create the pdf document, run from within python
 
-import pweave pweave.weave(r'finite_differences.pnw', figformat='png', doctype='texmint
+import pweave 
+pweave.weave(r'finite_differences.pnw', figformat='png', doctype='texminted', cache=True)
 
 followed by running LaTeX
 
